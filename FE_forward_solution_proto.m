@@ -2,7 +2,7 @@ clc; clear all; close all;
 smoothsteps = 1;
 rmax = 1;
 rmin = 0.8;
-n_mesh_bc = 40;
+n_mesh_bc = 80;
 l_plot_smoothing = 1;
 l_plot_conformal = 1;
 l_plot_loop = 0;
@@ -41,12 +41,6 @@ Zi = [x_rand;y_rand];  z_ref = [x_curve;y_curve];
 
 if l_plot_conformal == 1
     [scaling_factor,w] = conformalscaling(x_curve,y_curve,n_mesh_bc);
-%     figure(plot_num)
-%     plot(scaling_factor,'DisplayName','Scaling factor')
-%     xlabel('boundary mesh indx');
-%     ylabel('w')
-%     legend show
-%     plot_num = plot_num + 1;
     
     phi_bc_B2 =  soln_bc_B2(S_true,Zi,z_ref,N_source);
     phi_forward = scaling_factor.*phi_bc_B2;
@@ -56,45 +50,52 @@ if l_plot_conformal == 1
     ylabel('\phi_{poly}');
     legend show
     plot_num = plot_num + 1;    
-%     figure(plot_num)
-%     plot(phi_bc_B2,'r-','Displayname','\phi_{B^{2}(0,1)}'); hold on;
-%     plot(phi_forward,'k-','Displayname','\phi_{poly} = w.*\phi_{B^{2}(0,1)}');
-%     xlabel('boundary mesh indx');
-%     ylabel('\phi_{B^2(0,1)},\phi_{poly}');
-%     legend show
-%     legend show
-%     plot_num = plot_num + 1;
-    
-%     phi_data = phi_forward + var_noise*rand(n_mesh_bc,1);
-%     figure(plot_num)
-%     plot(phi_data,'k-','Displayname','\phi_{data}')
-%     xlabel('boundary mesh indx');
-%     ylabel('\phi_{poly}');
-%     legend show
-%     plot_num = plot_num + 1;
     
 end
 vertices = [x_curve, y_curve; x_rand, y_rand];
 faces = convhull(x_curve, y_curve);
 % tri = delaunayTriangulation(vertices);
 tri = delaunayTriangulation([x_curve, y_curve]);
-% tri = [x_curve, y_curve];
+% filename1 = 'bc_geometry';
+% stlwrite(filename1, tri)% tri = [x_curve, y_curve];
 figure(901)
 triplot(tri);hold on;
 scatter(x_source,y_source,'r*');
-%K = stiffMatrix(tri);
-
 
 
 model = createpde();
 stlwrite(tri,'tritext2D.stl','text')
-importGeometry(model,"tritext2D.stl");
+geo = importGeometry(model,"tritext2D.stl");
+
+% g = geometryFromEdges(model,@circleg);
 gfun = @(region,state)0;
-mesh=generateMesh(model,"Hmax",.5,"GeometricOrder","linear");
+mesh=generateMesh(model,"Hmax",.1,"GeometricOrder","linear");
+% % figure(1010)
+% % for i=1:length(mesh.Elements(1,:))
+% %     scatter(mesh.Nodes(1,mesh.Elements(1,i)),mesh.Nodes(2,mesh.Elements(1,i))); hold on;
+% % end
+% 
+% % figure(1011)
+% eps_circ = 1e-3;
+% for i=1:length(mesh.Elements(1,:))
+% %     scatter(mesh.Nodes(1,mesh.Elements(2,i)),mesh.Nodes(2,mesh.Elements(2,i))); hold on;
+%     if abs(norm([mesh.Nodes(1,mesh.Elements(2,i)) mesh.Nodes(2,mesh.Elements(2,i))]) - 1) <= eps_circ
+%         disp(mesh.Elements(2,i))
+%         element_store(i) = mesh.Elements(2,i);
+%     end
+% end
+% bc_elements = element_store(element_store ~= 0);
+% figure(1012)
+% for i=1:length(bc_elements)
+%     scatter(mesh.Nodes(1,bc_elements(i)),mesh.Nodes(2,bc_elements(i))); hold on;
+% end
+
 disp(strcat('Number of Nodes = ','',num2str(length(mesh.Nodes))));
 applyBoundaryCondition(model,"neumann", ...
     "Face",1:model.Geometry.NumFaces, ...
     "g",gfun);
+Nf2 = 1:64;
+
 % phi = @(xi, eta) [1-xi, 1+xi, 1-eta, 1+eta];
 % phi = @(xi, eta) [(1 - xi) * (1 - eta) / 4, (1 + xi) * (1 - eta) / 4,...
 %     (1 + xi) * (1 + eta) / 4, (1 - xi) * (1 + eta) / 4];
@@ -103,7 +104,7 @@ phi = @(xi, eta) [(1 - xi - eta), xi, eta];
 conv_kernel = [];
 lambda = 0.1;
 tol = 1e-5;
-i_sigma = 10;
+i_sigma = 6;
 for i = 1:i_sigma
     eps = 10^(-i);
     f = @(location,state)fsource(location,state,S_true,x_source,y_source,N_source,eps,conv_kernel);
@@ -119,13 +120,13 @@ for i = 1:i_sigma
     %     Kinv = ridge(FEMn.Kc, lambda);
     tikh = FEMn.Kc'*FEMn.Kc + lambda*speye(size(FEMn.Kc));
     FcKinv = tikh\FEMn.Kc'*FEMn.Fc;
+    storeFc_epsloop(:,i) =   FEMn.Fc;
     soln_FE_n_tikh(:,i) = FEMn.B*(FcKinv) + FEMn.ud;
     
     %     soln_FE_s = FEMs.Ks\FEMs.Fs;
     results = solvepde(model,phi);
     
     % extract boundary solution:
-    Nf2 = findNodes(mesh,"region","Edge",1:model.Geometry.NumFaces);
     phi_forward_FE_raw(:,i) = results.NodalSolution(Nf2);
     phi_forward_FE_tikh(:,i) = soln_FE_n_tikh(Nf2,i);
     
@@ -178,7 +179,7 @@ ylabel('\phi(\partial \Omega)')
 legend show
 
 figure(602)
-scatter(model.Mesh.Nodes(1,:)',model.Mesh.Nodes(2,:)')
+scatter(model.Geometry.Vertices(:,1),model.Geometry.Vertices(:,2))
 
 figure(603)
 pdeplot(model,"XYData",soln_FE_raw(:,1))
