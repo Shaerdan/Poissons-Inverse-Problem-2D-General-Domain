@@ -102,7 +102,7 @@ cond(FEMn.Kc)
 %     Kinv = ridge(FEMn.Kc, lambda);
 tikh = FEMn.Kc'*FEMn.Kc + lambda*speye(size(FEMn.Kc));
 FcKinv = tikh\FEMn.Kc'*FEMn.Fc;
-soln_FE_n_tikh(:,1) = FEMn.B*(FcKinv) + FEMn.ud;
+soln_FE_n_tikh(:,i) = FEMn.B*(FcKinv) + FEMn.ud;
 %     noise = randn(size(FEMn.Fc));
 noise = 0;
 Data_Fc = FEMn.Fc + noise;
@@ -110,10 +110,10 @@ Data_Fc = FEMn.Fc + noise;
 results = solvepde(model,phi);
 
 % extract boundary solution:
-phi_forward_FE_raw(:,1) = results.NodalSolution(Nf2);
-phi_forward_FE_tikh(:,1) = soln_FE_n_tikh(Nf2,1);
+phi_forward_FE_raw(:,i) = results.NodalSolution(Nf2);
+phi_forward_FE_tikh(:,i) = soln_FE_n_tikh(Nf2,i);
 
-soln_FE_raw(:,1) = results.NodalSolution;
+soln_FE_raw(:,i) = results.NodalSolution;
 if l_plot_loop == 1
     figure(plot_num)
     pdeplot(model,"XYData",results.NodalSolution)
@@ -133,23 +133,35 @@ if l_plot_loop == 1
 end
 
 A = FEMn.Kc;
-% A_Tikh = FEMn.Kc'*FEMn.Kc + lambda*speye(size(FEMn.Kc));
-% Data_Fc_Tikh = FEMn.Kc'*Data_Fc;
+A_Tikh = FEMn.Kc'*FEMn.Kc + lambda*speye(size(FEMn.Kc));
+Data_Fc_Tikh = FEMn.Kc'*Data_Fc;
 X0 = rand(size(Data_Fc));
-figure(650)
-lambda = 0.1;
+figure(2020)
 plot(Data_Fc)
 options0 = optimoptions('fmincon','CheckGradients',false,'SpecifyObjectiveGradient',false,...
     'PlotFcn','optimplotfval','MaxIterations',20000,'MaxFunctionEvaluations',1e5);
-soln_reconstructed = fmincon(@(X)costfun_FEM(X,A,Data_Fc,lambda),X0,[],[],[],[],[],[],[],options0);
-figure(651)
-plot(A*soln_reconstructed)
-% soln_reconstructed_Tikh = fmincon(@(X)costfun_FEM(X,A_Tikh,Data_Fc_Tikh),X0,[],[],[],[],[],[],[],options0);
-% figure(1021)
-% pdeplot(model,"XYData",soln_reconstructed_Tikh(:,1),"FaceAlpha",0.9); hold on;
+soln_reconstructed_raw = fmincon(@(X)costfun_FEM(X,A,Data_Fc),X0,[],[],[],[],[],[],[],options0);
+figure(1020)
+pdeplot(model,"XYData",soln_reconstructed_raw(:,1),"FaceAlpha",0.9); hold on;
+
+soln_reconstructed_Tikh = fmincon(@(X)costfun_FEM(X,A_Tikh,Data_Fc_Tikh),X0,[],[],[],[],[],[],[],options0);
+figure(1021)
+pdeplot(model,"XYData",soln_reconstructed_Tikh(:,1),"FaceAlpha",0.9); hold on;
+
+
+% figure(plot_num)
+% % pdemesh(model,"NodeLabels","on")
+% % hold on
+% plot(mesh.Nodes(1,Nf2),mesh.Nodes(2,Nf2),"ok","MarkerFaceColor","g")
+% plot_num = plot_num + 1;
+
+
+% figure(plot_num)
+% pdeplot(model,"XYData",soln_FE_s)
+% plot_num = plot_num + 1;
 
 figure(600)
-plot(phi_forward_FE_raw(:,1),'DisplayName',strcat('Unregularised, eps =',eps)); hold on;
+    plot(phi_forward_FE_raw(:,i),'DisplayName',strcat('Unregularised, eps =',num2str(10^(-i)))); hold on;
 
 xlabel('boundary nodes')
 ylabel('\phi(\partial \Omega)')
@@ -157,7 +169,7 @@ legend show
 
 
 figure(601)
-plot(phi_forward_FE_tikh(:,1),'DisplayName',strcat('Tikhonov regularised, eps =',eps)); hold on;
+    plot(phi_forward_FE_tikh(:,1),'DisplayName',strcat('Tikhonov regularised, eps =',eps)); hold on;
 xlabel('boundary nodes')
 ylabel('\phi(\partial \Omega)')
 legend show
@@ -180,11 +192,4 @@ S2 = scatter(x_source(S_true>0),y_source(S_true>0),markersize_scaleup*abs(S_true
 xlabel('x')
 ylabel('y')
 legend('Tikhonov regularised')
-legend show
-
-figure(1020)
-pdeplot(model,"XYData",soln_reconstructed(:,1),"FaceAlpha",0.9); hold on;
-xlabel('x')
-ylabel('y')
-legend('Inverse Solution')
 legend show

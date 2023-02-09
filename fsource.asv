@@ -5,11 +5,11 @@ function [f] = fsource(location,state,S,x_source,y_source,nsource,eps,kernel)
 for i= 1:nsource
     distance = sqrt((location.x-x_source(i)).^2 + (location.y-y_source(i)).^2);
     %distance(distance<=0.01) = 0;
-    f_i(:,i) = zeros(size(location.x));
-    if find(distance<=eps)
+    if find(distance<=0.10)
         %     f_i(:,i) = S(i)*exp(-(distance.^2)./(2*eps^2));
-        indices = find(distance<=eps);
-        f_i(indices,i) = S(i);        
+        f_i(find(distance<=0.10),i) = 1000000*S(i)*ones(size(location.x));
+    else
+        f_i(:,i) = zeros(size(location.x));
     end
 end
 f = sum(f_i,2);
