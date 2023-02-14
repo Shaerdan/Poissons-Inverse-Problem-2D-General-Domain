@@ -1,9 +1,11 @@
 clc; clear all; close all;
+save_all_figures = 1;
+dirname = 'C:\results\Poissons-Inverse-Problem-2D-General-Domain\14022023\2\';
 smoothsteps = 1;
 rmax = 1;
 rmin = 1;
 n_vertices_bc_geometry = 580;
-H_max_FEM = 0.5;
+H_max_FEM = 0.1;
 eps = 5*1e-2; % margin for the Kronecker delta function
 l_plot_smoothing = 1;
 l_plot_conformal = 0;
@@ -16,12 +18,12 @@ var_noise = 0;
 lambda_FEM = 0.0001;
 lambda_inv_tikh = 5*1e-1;
 lambda_inv_lasso = 1e-2;
-reg_method = 2; % 1 for Tikhonov, 2 for lasso
-if reg_method == 1
-    lambda_inv = lambda_inv_tikh;
-elseif reg_method == 2
-    lambda_inv = lambda_inv_lasso;
-end
+reg_method = 1; % 1 for Tikhonov, 2 for lasso 3 for tv
+% if reg_method == 1
+%     lambda_inv = lambda_inv_tikh;
+% elseif reg_method == 2
+%     lambda_inv = lambda_inv_lasso;
+% end
 
 for itest = 1:curve_num
     [x_curve,y_curve] = randomsmoothcurveB2(smoothsteps,rmax,rmin,n_vertices_bc_geometry,l_plot_smoothing);
@@ -45,7 +47,7 @@ if l_plot_conformal == 1
     xlabel('boundary mesh indx');
     ylabel('\phi_{poly}');
     legend show
-    plot_num = plot_num + 1;   
+    plot_num = plot_num + 1;
 end
 
 tri = delaunayTriangulation([x_curve, y_curve]);
@@ -130,63 +132,63 @@ Data_Bc = H_obs*soln_FE_n_tikh + noise;
 % plot(Data_Bc)
 for i = 1:10
     lambda_inv = 10^(-i);
-options0 = optimoptions('fmincon','CheckGradients',false,'SpecifyObjectiveGradient',false,...
-    'PlotFcn','optimplotfval','MaxIterations',1e2,'MaxFunctionEvaluations',1e7);
-sourceterm_reconstructed = fmincon(@(X)costfun_FEM(X,A_forward,Data_Bc,bndNodes,lambda_inv,reg_method,model),X0,[],[],[],[],[],[],[],options0);
-figure(651+i)
-Soln_Inv = A_tikh_inv*sourceterm_reconstructed;
-plot(Soln_Inv(bndNodes),'r','DisplayName','Reconstructed data'); hold on;
-plot(Data_Bc,'k*','DisplayName','True data');
-
-figure(1010+i)
-markersize_scaleup = 1;
-pdeplot(model,"XYData",soln_FE_n_tikh(:,1),"FaceAlpha",0.9); hold on;
-S1 = scatter(x_source(S_true<=0),y_source(S_true<=0),markersize_scaleup*abs(S_true(S_true<=0)),'ko'); hold on;
-S2 = scatter(x_source(S_true>0),y_source(S_true>0),markersize_scaleup*abs(S_true(S_true>0)),'k+');
-xlabel('x')
-ylabel('y')
-legend('Tikhonov regularised')
-legend show
-
-figure(2010+i)
-pdeplot(model,"XYData",Soln_Inv(:,1),"FaceAlpha",0.9); hold on;
-xlabel('x')
-ylabel('y')
-legend('Inverse Solution')
-legend show
-
-figure(3010 + i)
-pdeplot(model,"XYData",sourceterm_reconstructed(:,1),"FaceAlpha",0.9); hold on;
-xlabel('x')
-ylabel('y')
-legend('Reconstructed Source Term Field')
-legend show
-
-figure(4010 + i)
-pdeplot(model,"XYData",FEMn.Fc(:,1),"FaceAlpha",0.9); hold on;
-xlabel('x')
-ylabel('y')
-legend('True Source Term Field')
-legend show
-
-
-figure(5010 + i)
-plot(sourceterm_reconstructed(:,1),'r*','DisplayName','Reconstructed'); hold on; 
-plot(FEMn.Fc(:,1),'k','DisplayName','True');      
-xlabel('i element')
-ylabel('source term')
-legend show
-        if save_all_figures == 1
-            mkdir('C:\GitHub\Poissons-Inverse-Problem-2D-General-Domain\results\14022023\1')
-            addpath('C:\GitHub\PDRA-project\coupled L96\savepicspackage')
-            mkdir(dirname);
-            figHandles = findall(0,'Type','figure');
-            for i = 1:numel(figHandles)
-                fig_num = figHandles(i).Number;
-                fn = strcat(dirname,num2str(fig_num),'-',num2str(i_trial),'-',...
-                    num2str(i_ob_pattern_repeats));  %in this example, we'll save to a temp directory.
-                export_fig(fn,'-png',figHandles(i))
-            end
-            close all;
+    options0 = optimoptions('fmincon','CheckGradients',false,'SpecifyObjectiveGradient',false,...
+        'PlotFcn','optimplotfval','MaxIterations',1e2,'MaxFunctionEvaluations',1e7);
+    sourceterm_reconstructed = fmincon(@(X)costfun_FEM(X,A_forward,Data_Bc,lambda_inv,reg_method,model),X0,[],[],[],[],[],[],[],options0);
+    figure(651+i)
+    Soln_Inv = A_tikh_inv*sourceterm_reconstructed;
+    plot(Soln_Inv(bndNodes),'r','DisplayName','Reconstructed data'); hold on;
+    plot(Data_Bc,'k*','DisplayName','True data');
+    if i == 1
+        figure(1010+i)
+        markersize_scaleup = 1;
+        pdeplot(model,"XYData",soln_FE_n_tikh(:,1),"FaceAlpha",0.9); hold on;
+        S1 = scatter(x_source(S_true<=0),y_source(S_true<=0),markersize_scaleup*abs(S_true(S_true<=0)),'ko'); hold on;
+        S2 = scatter(x_source(S_true>0),y_source(S_true>0),markersize_scaleup*abs(S_true(S_true>0)),'k+');
+        xlabel('x')
+        ylabel('y')
+        legend('Tikhonov regularised')
+        legend show
+        
+        figure(4010 + i)
+        pdeplot(model,"XYData",FEMn.Fc(:,1),"FaceAlpha",0.9); hold on;
+        xlabel('x')
+        ylabel('y')
+        legend('True Source Term Field')
+        legend show
+    end
+    figure(2010+i)
+    pdeplot(model,"XYData",Soln_Inv(:,1),"FaceAlpha",0.9); hold on;
+    xlabel('x')
+    ylabel('y')
+    legend('Inverse Solution')
+    legend show
+    
+    figure(3010 + i)
+    pdeplot(model,"XYData",sourceterm_reconstructed(:,1),"FaceAlpha",0.9); hold on;
+    xlabel('x')
+    ylabel('y')
+    legend('Reconstructed Source Term Field')
+    legend show
+    
+    
+    
+    
+    figure(5010 + i)
+    plot(sourceterm_reconstructed(:,1),'r*','DisplayName','Reconstructed'); hold on;
+    plot(FEMn.Fc(:,1),'k','DisplayName','True');
+    xlabel('i element')
+    ylabel('source term')
+    legend show
+    if save_all_figures == 1
+        mkdir(dirname)
+        addpath('C:\GitHub\PDRA-project\coupled L96\savepicspackage')
+        figHandles = findall(0,'Type','figure');
+        for i_handles = 1:numel(figHandles)
+            fig_num = figHandles(i_handles).Number;
+            fn = strcat(dirname,num2str(fig_num));  %in this example, we'll save to a temp directory.
+            export_fig(fn,'-png',figHandles(i_handles))
         end
+        close all;
+    end
 end
